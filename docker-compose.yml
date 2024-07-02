@@ -1,0 +1,64 @@
+version: "3.9"
+services:
+  # POSTGRES
+  db:
+    image: postgres:14.6
+    container_name: shoping-fun-postgres
+    restart: always
+    hostname: ${POSTGRES_HOST}
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+      - DATABASE_HOST=${POSTGRES_HOST}
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes: 
+      - ./config/postgres/volumes:/var/lib/postgresql/data
+      - ./config/postgres/docker-entrypoint-initdb:/docker-entrypoint-initdb.d/
+    networks:
+      - shoping-fun-user-net
+
+  # APPLICATION
+  web:
+    image: kintamani/shoping-fun-user
+    # command: gin
+    command: ["gin"]
+    container_name: shoping-fun-user
+    build: 
+      context: "./"
+      dockerfile: ./config/development/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      # ====== postgres ======
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+      - DATABASE_HOST=${POSTGRES_HOST}
+      - DATABASE_PORT=${POSTGRES_PORT}
+    volumes:
+      - type: bind
+        source: ./src
+        target: /go/src/app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - shoping-fun-user-net
+
+volumes:
+  postgres:
+    driver: local
+  shoping-fun-user_app:
+    name: shoping-fun-user_app
+
+networks:
+  shoping-fun-user-net:
+    name: shoping-fun-user-net
+    driver: bridge
